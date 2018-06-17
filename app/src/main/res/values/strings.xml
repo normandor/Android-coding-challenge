@@ -1,9 +1,9 @@
 <resources>
-    <string name="app_name">Voice Recognition</string>
+    <string name="app_name">Voice Recognition / Weather info</string>
     <string name="open_weather_maps_app_id">164fb08f4806dc131d4f37f0511a6a0c</string>
     <string name="action_settings">Settings</string>
     <string name="initial_caption">Say \"weather\" and to see the forecast.</string>
-    <string name="weather_caption">Here is the weather for X. Say \"go back\" when you\'re done.</string>
+    <string name="weather_caption">Showing weather. Say \"go back\" when you\'re done.</string>
     <string name="preparing_recogniser">Preparing the recogniser...</string>
     <string name="failed_to_init_recogniser">Failed to init recognizer </string>
     <string name="countdown">Countdown</string>

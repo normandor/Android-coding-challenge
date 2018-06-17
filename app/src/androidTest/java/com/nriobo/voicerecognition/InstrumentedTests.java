@@ -3,7 +3,6 @@ package com.nriobo.voicerecognition;
 import android.content.Context;
 import android.support.test.InstrumentationRegistry;
 import android.support.test.runner.AndroidJUnit4;
-import android.util.Log;
 
 import org.json.JSONException;
 import org.json.JSONObject;
@@ -19,7 +18,7 @@ import static org.junit.Assert.*;
  * @see <a href="http://d.android.com/tools/testing">Testing documentation</a>
  */
 @RunWith(AndroidJUnit4.class)
-public class ExampleInstrumentedTest {
+public class InstrumentedTests {
     private Context appContext;
 
     @Before
@@ -32,19 +31,27 @@ public class ExampleInstrumentedTest {
        assertEquals("com.nriobo.voicerecognition", appContext.getPackageName());
     }
 
+
     // to check if the connection to API was well implemented
     @Test
-    public void fetchWeatherInfo_codIs200() {
-        String cod= "0";
-        JSONObject json = new JSONObject();
-        try {
-            json = FetchWeatherInfo.getJSON(appContext, "Hamburg");
-            cod = json.getString("cod");
-        } catch (JSONException e) {
-            e.printStackTrace();
-        }
+    public void fetchWeatherInfo_nameIsHamburg() {
 
-        assertEquals("200", cod);
+        FetchWeatherInfo asyncTask = new FetchWeatherInfo(new AsyncResponse() {
+
+            @Override
+            public void processFinish(Object output) {
+                String cod= "0";
+                try {
+                    JSONObject jsonObject = new JSONObject((String) output);
+                    cod = jsonObject.getString("name");
+                } catch (JSONException e) {
+                    e.printStackTrace();
+                }
+                assertEquals("Hamburg", cod);
+            }
+        });
+
+        asyncTask.execute(new Object[]{"Hamburg", InstrumentationRegistry.getTargetContext().getResources().getString(R.string.open_weather_maps_app_id)});
     }
 
 }

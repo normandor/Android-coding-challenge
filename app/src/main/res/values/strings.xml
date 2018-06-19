@@ -6,5 +6,14 @@
     <string name="weather_caption">Showing weather. Say \"go back\" when you\'re done.</string>
     <string name="preparing_recogniser">Preparing the recogniser...</string>
     <string name="failed_to_init_recogniser">Failed to init recognizer </string>
+    <string name="temperature_text">Temperature in %s\n%s degrees, %s humidity</string>
+    <string name="information_unavailable">Information unavailable at this moment</string>
     <string name="countdown">Countdown</string>
+    <string name="fetching_info">Fetching weather information for %s...</string>
+    <string name="explanation_microphone_denied">The user has denied access to the microphone. Thus, the voice command will not work. You can re-enable it from the device\'s settings.</string>
+    <string name="microphone_access_required">For this app to correctly function, it needs access to your microphone.</string>
+    <string name="microphone_unavailable">The microphone is unavailable, the permission has not been granted.</string>
+    <string name="microphone_denied">The app needs permission the microphone to function.</string>
+    <string name="ok">OK</string>
+
 </resources>

@@ -8,12 +8,12 @@ import android.content.pm.PackageManager;
 import android.os.AsyncTask;
 import android.os.Bundle;
 import android.support.annotation.NonNull;
+import android.support.design.widget.Snackbar;
 import android.support.v4.app.ActivityCompat;
-import android.support.v4.content.ContextCompat;
 import android.view.View;
 import android.widget.ImageView;
+import android.widget.ProgressBar;
 import android.widget.TextView;
-import android.widget.Toast;
 
 import org.json.JSONArray;
 import org.json.JSONException;
@@ -30,11 +30,9 @@ import edu.cmu.pocketsphinx.RecognitionListener;
 import edu.cmu.pocketsphinx.SpeechRecognizer;
 import edu.cmu.pocketsphinx.SpeechRecognizerSetup;
 
-import static android.widget.Toast.makeText;
-
 public class SpeechRecognitionActivity extends Activity implements RecognitionListener {
 
-    private String theCity = "Hamburg"; // this has to be changeable
+    private String theCity = "Hamburg"; // this has to be configurable
     private static final String URL_BASE_ICON = "http://openweathermap.org/img/w/";
     private static final String WEATHER_SCREEN = "wakeup";
     private static final String WEATHER_PHRASE = "weather";
@@ -46,7 +44,7 @@ public class SpeechRecognitionActivity extends Activity implements RecognitionLi
     private HashMap<String, Integer> captions;
     private String lastSelection = "";
     private Context mContext;
-
+    private View mLayout;
 
     @Override
     public void onCreate(Bundle state) {
@@ -57,17 +55,36 @@ public class SpeechRecognitionActivity extends Activity implements RecognitionLi
         captions.put(WEATHER_SCREEN, R.string.initial_caption);
         captions.put(MAIN_SCREEN, R.string.weather_caption);
         setContentView(R.layout.layout_speech_recognition_activity);
+        mLayout = findViewById(R.id.mainLayout);
+
         ((TextView) findViewById(R.id.caption_text)).setText(R.string.preparing_recogniser);
-
-        getAndPrintWeatherInfo(theCity);
-
-        int permissionCheck = ContextCompat.checkSelfPermission(getApplicationContext(), Manifest.permission.RECORD_AUDIO);
-        if (permissionCheck != PackageManager.PERMISSION_GRANTED) {
-            ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.RECORD_AUDIO}, PERMISSIONS_REQUEST_RECORD_AUDIO);
-            return;
+        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO)
+                == PackageManager.PERMISSION_GRANTED) {
+            new SetupTask(this).execute();
+        } else {
+            requestMicPermission();
         }
+    }
 
-        new SetupTask(this).execute();
+    private void requestMicPermission() {
+        if (ActivityCompat.shouldShowRequestPermissionRationale(this,
+                Manifest.permission.RECORD_AUDIO)) {
+            Snackbar.make(mLayout, R.string.microphone_access_required,
+                    Snackbar.LENGTH_INDEFINITE).setAction(R.string.ok, new View.OnClickListener() {
+                @Override
+                public void onClick(View view) {
+                    // Request the permission
+                    ActivityCompat.requestPermissions(SpeechRecognitionActivity.this,
+                            new String[]{Manifest.permission.RECORD_AUDIO},
+                            PERMISSIONS_REQUEST_RECORD_AUDIO);
+                }
+            }).show();
+
+        } else {
+            Snackbar.make(mLayout, R.string.microphone_unavailable, Snackbar.LENGTH_SHORT).show();
+            ActivityCompat.requestPermissions(this,
+                    new String[]{Manifest.permission.RECORD_AUDIO}, PERMISSIONS_REQUEST_RECORD_AUDIO);
+        }
     }
 
     private static class SetupTask extends AsyncTask<Void, Void, Exception> {
@@ -101,15 +118,19 @@ public class SpeechRecognitionActivity extends Activity implements RecognitionLi
     }
 
     @Override
-    public void onRequestPermissionsResult(int requestCode,
-                                           @NonNull String[] permissions, @NonNull int[] grantResults) {
-        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
-
+    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions,
+                                           @NonNull int[] grantResults) {
         if (requestCode == PERMISSIONS_REQUEST_RECORD_AUDIO) {
-            if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+            if (grantResults.length == 1 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
                 new SetupTask(this).execute();
             } else {
-                finish();
+                // Permission request was denied.
+                Snackbar.make(mLayout, R.string.microphone_denied,
+                        Snackbar.LENGTH_SHORT)
+                        .show();
+                hideProgressbar();
+                TextView tvWeatherInfo = findViewById(R.id.textViewWeatherInfo);
+                tvWeatherInfo.setText(getResources().getString(R.string.microphone_denied));
             }
         }
     }
@@ -117,7 +138,6 @@ public class SpeechRecognitionActivity extends Activity implements RecognitionLi
     @Override
     public void onDestroy() {
         super.onDestroy();
-
         if (recognizer != null) {
             recognizer.cancel();
             recognizer.shutdown();
@@ -138,31 +158,43 @@ public class SpeechRecognitionActivity extends Activity implements RecognitionLi
                 switchSearch(WEATHER_SCREEN);
                 break;
             default:
-                ((TextView) findViewById(R.id.result_text)).setText(text);  // debug purposes: print what user says
+//                ((TextView) findViewById(R.id.result_text)).setText(text);  // debug purposes: print what user says
                 break;
         }
 
     }
 
-    // called when the recognizer is stopped
     @Override
     public void onResult(Hypothesis hypothesis) {
+
+        /* // user feedback
         ((TextView) findViewById(R.id.result_text)).setText("");
         if (hypothesis != null) {
             String text = hypothesis.getHypstr();
-            makeText(getApplicationContext(), "you said " + text, Toast.LENGTH_SHORT).show();   // user feedback
+            makeText(getApplicationContext(), "you said " + text, Toast.LENGTH_SHORT).show();
         }
+        */
+    }
+
+    private void updateWeatherValues(boolean dataAvailable) {
+        TextView tvShowWeather = findViewById(R.id.textViewWeatherInfo);
+        tvShowWeather.setText(getResources().getString(R.string.information_unavailable));
+        hideProgressbar();
+        ImageView ivWeatherIcon = findViewById(R.id.imageViewWeatherIcon);
+        GlideApp.with(mContext)
+                .load(getDrawable(R.drawable.icon_network_problem))
+                .into(ivWeatherIcon);
     }
 
     private void updateWeatherValues(String temperature, String city, String humidity, String iconFile) {
         TextView tvShowWeather = findViewById(R.id.textViewWeatherInfo);
-        String weather = String.format("Temperature in %s\n%s degrees, %s humidity", city, temperature, humidity + "%");
+        String weather = String.format(getResources().getString(R.string.temperature_text), city, temperature, humidity + "%");
         tvShowWeather.setText(weather);
-        ImageView ivWeatherIcon = (ImageView) findViewById(R.id.imageViewWeatherIcon);
+        hideProgressbar();
+        ImageView ivWeatherIcon = findViewById(R.id.imageViewWeatherIcon);
         GlideApp.with(mContext)
                 .load(URL_BASE_ICON + iconFile)
                 .into(ivWeatherIcon);
-
     }
 
     public void getWeatherInfo(String city) {
@@ -170,23 +202,23 @@ public class SpeechRecognitionActivity extends Activity implements RecognitionLi
 
             @Override
             public void processFinish(Object output) {
-                String city = "";
-                String grados = "";
-                String humidity = "";
-                String icon = "";
-                try {
-                    JSONObject jsonObject = new JSONObject((String) output);
-                    city = jsonObject.getString("name");
-                    JSONObject main = jsonObject.getJSONObject("main");
-                    JSONArray weather = jsonObject.getJSONArray("weather");
-                    grados = main.getString("temp");
-                    humidity = main.getString("humidity");
-                    icon = weather.getJSONObject(0).getString("icon");
-                } catch (JSONException e) {
-                    e.printStackTrace();
-                }
-
-                updateWeatherValues(grados, city, humidity, icon + ".png");
+                String city, degrees, humidity, icon;
+                if (output != null) {
+                    try {
+                        JSONObject jsonObject = new JSONObject((String) output);
+                        city = jsonObject.getString("name");
+                        JSONObject main = jsonObject.getJSONObject("main");
+                        JSONArray weather = jsonObject.getJSONArray("weather");
+                        degrees = main.getString("temp");
+                        humidity = main.getString("humidity");
+                        icon = weather.getJSONObject(0).getString("icon");
+                        updateWeatherValues(degrees, city, humidity, icon + ".png");
+                    } catch (JSONException e) {
+                        e.printStackTrace();
+                        updateWeatherValues(false);
+                    }
+                } else
+                    updateWeatherValues(false);
             }
         });
 
@@ -211,8 +243,8 @@ public class SpeechRecognitionActivity extends Activity implements RecognitionLi
     private void switchSearch(String searchName) {
         lastSelection = searchName;
         recognizer.stop();
-
         recognizer.startListening(searchName, 20000);
+        hideProgressbar();
 
         String caption = getResources().getString(captions.get(searchName));
         ((TextView) findViewById(R.id.caption_text)).setText(caption);
@@ -252,9 +284,10 @@ public class SpeechRecognitionActivity extends Activity implements RecognitionLi
     }
     private void getAndPrintWeatherInfo(String city) {
         showWeatherInfoTextView();
-        String weather = "No information available";
-        TextView tvShowWeather = (TextView) findViewById(R.id.textViewWeatherInfo);
-        tvShowWeather.setText(weather );
+        showProgressbar();
+        String weather = getResources().getString(R.string.fetching_info, theCity);
+        TextView tvShowWeather = findViewById(R.id.textViewWeatherInfo);
+        tvShowWeather.setText(weather);
         getWeatherInfo(theCity);
     }
 
@@ -269,5 +302,13 @@ public class SpeechRecognitionActivity extends Activity implements RecognitionLi
             switchSearch(lastSelection);
         else
             switchSearch(WEATHER_SCREEN);
+    }
+    private void hideProgressbar() {
+        ProgressBar pb = findViewById(R.id.progressBar);
+        pb.setVisibility(View.GONE);
+    }
+    private void showProgressbar() {
+        ProgressBar pb = findViewById(R.id.progressBar);
+        pb.setVisibility(View.VISIBLE);
     }
 }
